@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3GPP Rel-19 · RAG</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #161a22; --panel2: #1d2330; --line: #262d3b;
+    --txt: #e7ecf3; --muted: #8b95a7; --accent: #4f8cff; --accent2: #22c98a;
+    --user: #22314d; --warn: #ffb020; --err: #ff5d5d;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg); color: var(--txt);
+    font: 15px/1.6 "Segoe UI", system-ui, -apple-system, sans-serif;
+  }
+  .app { display: flex; height: 100%; }
+  aside {
+    width: 280px; flex: 0 0 280px; background: var(--panel);
+    border-right: 1px solid var(--line); display: flex; flex-direction: column;
+  }
+  .brand { padding: 18px 16px 10px; font-weight: 700; letter-spacing: .3px; }
+  .brand span { color: var(--accent); }
+  .new-btn {
+    margin: 0 12px 12px; padding: 10px 12px; border-radius: 9px; cursor: pointer;
+    background: var(--accent); color: #fff; border: 0; font-weight: 600;
+  }
+  .new-btn:hover { filter: brightness(1.08); }
+  #sessions { overflow: auto; flex: 1; padding: 0 8px 12px; }
+  .sess {
+    padding: 9px 10px; border-radius: 8px; cursor: pointer; margin-bottom: 4px;
+    color: var(--muted); border: 1px solid transparent;
+  }
+  .sess:hover { background: var(--panel2); }
+  .sess.active { background: var(--panel2); border-color: var(--line); color: var(--txt); }
+  .sess b { display: block; font-weight: 600; font-size: 13.5px; color: inherit;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sess small { font-size: 11.5px; opacity: .8; }
+  .foot { padding: 10px 14px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11.5px; }
+  main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  header {
+    padding: 14px 22px; border-bottom: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  }
+  header h1 { font-size: 15px; margin: 0; font-weight: 600; }
+  header .hint { color: var(--muted); font-size: 12px; }
+  #chat { flex: 1; overflow: auto; padding: 24px 22px 8px; }
+  .wrap { max-width: 880px; margin: 0 auto; }
+  .msg { margin-bottom: 20px; display: flex; gap: 10px; }
+  .msg .who {
+    flex: 0 0 34px; height: 34px; border-radius: 9px; display: grid; place-items: center;
+    font-size: 12px; font-weight: 700; background: var(--panel2); color: var(--muted);
+  }
+  .msg.user .who { background: var(--user); color: #bcd2ff; }
+  .msg.ai .who { background: #173229; color: #7ee2b8; }
+  .bubble { flex: 1; min-width: 0; }
+  .bubble .text { word-wrap: break-word; }
+  .msg.user .text {
+    background: var(--user); padding: 10px 14px; border-radius: 12px; display: inline-block;
+    max-width: 100%; white-space: pre-wrap;
+  }
+  .text h4 { margin: 16px 0 6px; font-size: 14.5px; color: #cfe0ff; }
+  .text p { margin: 6px 0; }
+  .text ul { margin: 6px 0; padding-left: 22px; }
+  .text li { margin: 3px 0; }
+  .text blockquote {
+    margin: 8px 0; padding: 8px 12px; border-left: 3px solid var(--warn);
+    background: #2a2413; border-radius: 6px; color: #ffd98a;
+  }
+  .text code { background: var(--panel2); padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+  .cite { color: var(--accent); font-weight: 600; cursor: pointer; }
+  .gap { height: 6px; }
+  .sources { margin-top: 14px; border-top: 1px dashed var(--line); padding-top: 10px; }
+  .sources .head { font-size: 12px; color: var(--muted); text-transform: uppercase;
+                   letter-spacing: .6px; margin-bottom: 6px; }
+  .sources ol { margin: 0; padding-left: 20px; }
+  .sources li { margin: 6px 0; font-size: 13px; color: #c6cfdd; }
+  .tag { background: #1c2b45; color: #9dc0ff; border-radius: 5px; padding: 1px 6px;
+         font-size: 12px; font-weight: 600; }
+  .sources details { margin-top: 3px; color: var(--muted); }
+  .sources summary { cursor: pointer; font-size: 12px; }
+  .sources details p { margin: 6px 0 0; font-size: 12.5px; line-height: 1.5; }
+  .status { color: var(--muted); font-size: 12.5px; font-style: italic; margin: 4px 0 10px; }
+  .err { color: var(--err); }
+  #composer { padding: 12px 22px 20px; }
+  .composer-inner {
+    max-width: 880px; margin: 0 auto; display: flex; gap: 10px; align-items: flex-end;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 10px;
+  }
+  #q {
+    flex: 1; resize: none; background: transparent; border: 0; color: var(--txt);
+    font: inherit; outline: none; max-height: 180px; padding: 4px 6px;
+  }
+  #send {
+    background: var(--accent); color: #fff; border: 0; border-radius: 10px;
+    padding: 9px 18px; font-weight: 600; cursor: pointer;
+  }
+  #send:disabled { opacity: .5; cursor: default; }
+  .empty { text-align: center; color: var(--muted); margin-top: 12vh; }
+  .empty h2 { color: var(--txt); font-size: 22px; margin-bottom: 8px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 18px; }
+  .chip { background: var(--panel); border: 1px solid var(--line); color: #cfd8e6;
+          border-radius: 999px; padding: 7px 14px; cursor: pointer; font-size: 13px; }
+  .chip:hover { border-color: var(--accent); color: #fff; }
+  @media (max-width: 760px) {
+    aside { display: none; }
+    header { padding: 12px 14px; }
+    #chat, #composer { padding-left: 12px; padding-right: 12px; }
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside>
+    <div class="brand">3GPP <span>Rel-19</span> · RAG</div>
+    <button class="new-btn" id="new">+ Phiên mới</button>
+    <div id="sessions"></div>
+    <div class="foot" id="health">đang kết nối…</div>
+  </aside>
+
+  <main>
+    <header>
+      <h1>Trợ lý tài liệu 3GPP Release 19</h1>
+      <div class="hint" id="hint">hybrid 70% vector · 30% BM25</div>
+    </header>
+    <div id="chat"><div class="wrap" id="wrap"></div></div>
+    <form id="composer">
+      <div class="composer-inner">
+        <textarea id="q" rows="1" placeholder="Hỏi về tài liệu 3GPP Rel-19 (vd: TS 23.501 quy định gì về PDU Session?)"></textarea>
+        <button id="send" type="submit">Gửi</button>
+      </div>
+    </form>
+  </main>
+</div>
+
+<script>
+const state = { sid: null, sending: false, controller: null };
+const $ = (s) => document.querySelector(s);
+const wrap = $("#wrap");
+
+const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+function inline(s) {
+  return s
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/`([^`]+)`/g, "<code>$1</code>")
+    .replace(/\[(\d{1,2})\]/g, '<span class="cite" data-n="$1">[$1]</span>');
+}
+
+function md(text) {
+  const lines = esc(text || "").split("\n");
+  let html = "", inUl = false;
+  for (const raw of lines) {
+    const line = raw.replace(/\s+$/, "");
+    const h = line.match(/^(#{1,4})\s+(.*)$/);
+    if (h) {
+      if (inUl) { html += "</ul>"; inUl = false; }
+      html += `<h4>${inline(h[2])}</h4>`;
+      continue;
+    }
+    if (/^\s*[-*]\s+/.test(line)) {
+      if (!inUl) { html += "<ul>"; inUl = true; }
+      html += `<li>${inline(line.replace(/^\s*[-*]\s+/, ""))}</li>`;
+      continue;
+    }
+    if (inUl) { html += "</ul>"; inUl = false; }
+    if (!line.trim()) { html += '<div class="gap"></div>'; continue; }
+    if (/^&gt;\s?/.test(line)) {
+      html += `<blockquote>${inline(line.replace(/^&gt;\s?/, ""))}</blockquote>`;
+      continue;
+    }
+    html += `<p>${inline(line)}</p>`;
+  }
+  if (inUl) html += "</ul>";
+  return html;
+}
+
+function addUser(text) {
+  const el = document.createElement("div");
+  el.className = "msg user";
+  el.innerHTML = '<div class="who">Bạn</div><div class="bubble"><div class="text"></div></div>';
+  el.querySelector(".text").textContent = text;
+  wrap.appendChild(el);
+  scrollDown();
+}
+
+function addAI() {
+  const el = document.createElement("div");
+  el.className = "msg ai";
+  el.innerHTML = '<div class="who">AI</div><div class="bubble">' +
+    '<div class="status">Đang tìm tài liệu…</div><div class="text"></div>' +
+    '<div class="sources" hidden></div></div>';
+  wrap.appendChild(el);
+  scrollDown();
+  return el;
+}
+
+function renderSources(el, citations) {
+  const box = el.querySelector(".sources");
+  if (!citations || !citations.length) { box.hidden = true; return; }
+  box.hidden = false;
+  box.innerHTML = `<div class="head">Nguồn (${citations.length})</div><ol>` +
+    citations.map((c) => `
+      <li id="src-${c.rank}">
+        <span class="tag">TS ${esc(c.spec)}</span> v${esc(c.version)} §${esc(c.section || "—")}
+        — ${esc(c.title || "")}
+        <details><summary>trích đoạn</summary><p>${esc(c.snippet || "")}</p></details>
+      </li>`).join("") + "</ol>";
+}
+
+function scrollDown() { const c = $("#chat"); c.scrollTop = c.scrollHeight; }
+
+function setBusy(busy) {
+  state.sending = busy;
+  $("#send").disabled = busy;
+  $("#q").disabled = busy;
+}
+
+function clearChat() {
+  wrap.innerHTML = `
+    <div class="empty">
+      <h2>Hỏi về tài liệu 3GPP Rel-19</h2>
+      <div>Câu trả lời chỉ dựa trên tài liệu đã nạp, luôn kèm trích dẫn nguồn.</div>
+      <div class="chips">
+        <button class="chip">TS 23.501 quy định gì về PDU Session?</button>
+        <button class="chip">So sánh 4G và 5G về QoS flow</button>
+        <button class="chip">TS 38.304 quy định gì về cell selection?</button>
+      </div>
+    </div>`;
+  wrap.querySelectorAll(".chip").forEach((b) =>
+    b.addEventListener("click", () => { $("#q").value = b.textContent; send(); }));
+}
+
+async function loadHealth() {
+  try {
+    const r = await fetch("/api/health");
+    const h = await r.json();
+    $("#health").textContent = `${h.synth_model} · ${h.profile}`;
+    $("#hint").textContent = `hybrid 70% vector · 30% BM25 · ${h.sparse_collection}`;
+  } catch (e) {
+    $("#health").textContent = "mất kết nối API";
+  }
+}
+
+async function loadSessions(active) {
+  const box = $("#sessions");
+  try {
+    const r = await fetch("/api/sessions");
+    const list = await r.json();
+    box.innerHTML = "";
+    for (const s of list) {
+      const el = document.createElement("div");
+      el.className = "sess" + (s.id === active ? " active" : "");
+      el.innerHTML = `<b></b><small></small>`;
+      el.querySelector("b").textContent = s.title || "Phiên mới";
+      el.querySelector("small").textContent = `${s.turns} lượt · ${(s.updated_at || "").slice(5, 16)}`;
+      el.addEventListener("click", () => openSession(s.id));
+      box.appendChild(el);
+    }
+  } catch (e) { /* ignore */ }
+}
+
+async function openSession(sid) {
+  state.sid = sid;
+  wrap.innerHTML = "";
+  try {
+    const r = await fetch(`/api/sessions/${sid}`);
+    const data = await r.json();
+    for (const t of data.turns || []) {
+      addUser(t.question);
+      const el = addAI();
+      el.querySelector(".status").remove();
+      el.querySelector(".text").innerHTML = md(t.answer || "");
+      renderSources(el, t.citations || []);
+    }
+    if (!(data.turns || []).length) clearChat();
+    loadSessions(sid);
+    scrollDown();
+  } catch (e) {
+    wrap.innerHTML = `<div class="err">Không tải được phiên: ${esc(String(e))}</div>`;
+  }
+}
+
+function newSession() {
+  state.sid = null;
+  clearChat();
+  loadSessions(null);
+  $("#q").focus();
+}
+
+async function send() {
+  const text = $("#q").value.trim();
+  if (!text || state.sending) return;
+  $("#q").value = "";
+  $("#q").style.height = "auto";
+  addUser(text);
+
+  const el = addAI();
+  const status = el.querySelector(".status");
+  const out = el.querySelector(".text");
+  let buffer = "", raf = 0;
+
+  const paint = () => {
+    raf = 0;
+    out.innerHTML = md(buffer);
+    scrollDown();
+  };
+
+  setBusy(true);
+  try {
+    const res = await fetch("/api/chat/stream", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_id: state.sid, question: text }),
+    });
+    if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+
+    const reader = res.body.getReader();
+    const dec = new TextDecoder();
+    let buf = "";
+
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let idx;
+      while ((idx = buf.indexOf("\n\n")) >= 0) {
+        const raw = buf.slice(0, idx);
+        buf = buf.slice(idx + 2);
+        for (const line of raw.split("\n")) {
+          if (!line.startsWith("data: ")) continue;
+          const ev = JSON.parse(line.slice(6));
+          if (ev.type === "session") {
+            state.sid = ev.session_id;
+            loadSessions(state.sid);
+          } else if (ev.type === "token") {
+            if (status) status.remove();
+            buffer += ev.text;
+            if (!raf) raf = requestAnimationFrame(paint);
+          } else if (ev.type === "error") {
+            if (status) status.remove();
+            out.innerHTML += `<p class="err">Lỗi: ${esc(ev.message)}</p>`;
+          } else if (ev.type === "done") {
+            if (status) status.remove();
+            if (!buffer) buffer = ev.answer || "";
+            out.innerHTML = md(buffer);
+            renderSources(el, ev.citations || []);
+            if (ev.verdict && ev.verdict.ok === false) {
+              out.innerHTML += '<p class="err">⚠️ Câu trả lời chưa được kiểm chứng đầy đủ.</p>';
+            }
+            loadSessions(state.sid);
+          }
+        }
+      }
+    }
+    if (raf) cancelAnimationFrame(raf);
+    paint();
+  } catch (e) {
+    if (status) status.remove();
+    out.innerHTML = `<p class="err">Không gọi được API: ${esc(String(e))}</p>`;
+  } finally {
+    setBusy(false);
+    $("#q").focus();
+    scrollDown();
+  }
+}
+
+$("#composer").addEventListener("submit", (e) => { e.preventDefault(); send(); });
+$("#new").addEventListener("click", newSession);
+$("#q").addEventListener("input", (e) => {
+  e.target.style.height = "auto";
+  e.target.style.height = Math.min(e.target.scrollHeight, 180) + "px";
+});
+$("#q").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); }
+});
+wrap.addEventListener("click", (e) => {
+  if (!e.target.classList.contains("cite")) return;
+  const box = e.target.closest(".msg").querySelector(".sources");
+  if (box && !box.hidden) {
+    box.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+});
+
+loadHealth();
+clearChat();
+loadSessions(null);
+</script>
+</body>
+</html>
