@@ -20,7 +20,7 @@ from pathlib import Path
 
 BASE = "https://api.render.com/v1"
 ROOT = Path(__file__).resolve().parents[1]
-SERVICE = "threegpp-rel19-rag"
+SERVICE = "3gpp-rel19-rag"
 
 WANTED = {
     "RAG_PROFILE": "cheap",
