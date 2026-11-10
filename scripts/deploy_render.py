@@ -91,9 +91,20 @@ def set_env(key: str, service_id: str, values: dict[str, str]) -> None:
         print(f"  {name} = {shown}")
 
 
+def unwrap_deploy(resp) -> dict:
+    if isinstance(resp, list):
+        resp = resp[0] if resp else {}
+    if isinstance(resp, dict):
+        return resp.get("deploy", resp)
+    return {}
+
+
 def trigger(key: str, service_id: str) -> str:
-    deploy = api(key, "POST", f"/services/{service_id}/deploys", {"clearCache": "do_not_clear"})
-    return deploy.get("id") or deploy.get("deploy", {}).get("id", "")
+    deploy = unwrap_deploy(api(key, "POST", f"/services/{service_id}/deploys", {"clearCache": "do_not_clear"}))
+    if deploy.get("id"):
+        return deploy["id"]
+    latest = unwrap_deploy(api(key, "GET", f"/services/{service_id}/deploys?limit=1"))
+    return latest.get("id", "")
 
 
 def wait_live(key: str, service_id: str, deploy_id: str, timeout: int = 900) -> str:
@@ -102,7 +113,7 @@ def wait_live(key: str, service_id: str, deploy_id: str, timeout: int = 900) -> 
     status = "?"
     while time.time() - start < timeout:
         time.sleep(15)
-        dep = api(key, "GET", f"/services/{service_id}/deploys/{deploy_id}")
+        dep = unwrap_deploy(api(key, "GET", f"/services/{service_id}/deploys/{deploy_id}"))
         status = dep.get("status", "?")
         print(f"  [{int(time.time() - start):4d}s] {status}")
         if status in done:
