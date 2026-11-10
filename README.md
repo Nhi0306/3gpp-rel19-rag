@@ -220,33 +220,28 @@ Cập nhật hàng tuần: Task Scheduler `3GPP-Rel19-WeeklyUpdate` chạy **Ch�
 
 ---
 
-## 9. Deploy (Hugging Face Spaces)
+## 9. Deploy (Render)
 
-Web chạy công khai trên Hugging Face Spaces (Docker) để chia sẻ bằng link:
+Web chạy công khai trên Render (Docker, gói Free) để chia sẻ bằng link:
 
-**https://huggingface.co/spaces/&lt;username&gt;/3gpp-rel19-rag**
+**https://&lt;service-name&gt;.onrender.com**
 
-Cấu hình khi deploy (đặt trong Space → Settings → Variables and secrets):
+`render.yaml` khai báo sẵn service, biến môi trường và gói `free`. Cách deploy:
 
-| Loại | Biến |
-|---|---|
-| Secret | `QDRANT_URL`, `QDRANT_API_KEY`, `OPENROUTER_API_KEY` |
-| Variable | `RAG_PROFILE=cheap`, `RAG_MAX_REFINE=1`, `RAG_DAILY_LIMIT=100`, `RAG_RATE_PER_MIN=10`, `RAG_MAX_QUESTION_CHARS=2000` |
+1. Đăng ký Render bằng tài khoản GitHub: https://dashboard.render.com/register
+2. **New → Blueprint** → chọn repo `3gpp-rel19-rag` → **Apply**.
+3. Điền 3 secret khi Render hỏi: `QDRANT_URL`, `QDRANT_API_KEY`, `OPENROUTER_API_KEY`.
+4. Chờ build ~5 phút, mở link `https://<service-name>.onrender.com`.
 
 `Dockerfile` dùng `python:3.12-slim`, giải nén `data/bm25-stats.json.gz` thành
-`Rel-19/rag/bm25-stats.json` và chạy server ở cổng 7860. Lệnh deploy:
+`Rel-19/rag/bm25-stats.json`, lắng nghe `$PORT` do Render cấp.
 
-```powershell
-pip install huggingface_hub
-python scripts\deploy_hf.py --space 3gpp-rel19-rag --wait
-```
+Giới hạn của gói free: 512 MB RAM, 0.1 CPU; service **ngủ sau 15 phút** không có
+request (mở lại chậm ~1–2 phút); 750 giờ chạy/tháng; đĩa tạm nên lịch sử phiên
+mất khi restart; quota/rate limit chỉ lưu trong bộ nhớ tiến trình.
 
-Script tạo Space public, upload mã nguồn (bỏ `Rel-19/`, `.env`, log, cache),
-đặt secrets/variables rồi chờ build. Cập nhật code sau này chỉ cần chạy lại lệnh trên.
-
-Lưu ý: Space free tự ngủ khi không dùng (mở lại chậm ~30–60 giây); SQLite nằm
-trên đĩa tạm nên lịch sử phiên mất khi restart; quota và rate limit ở trên chỉ
-lưu trong bộ nhớ tiến trình.
+Hugging Face Spaces vẫn dùng được (`scripts/deploy_hf.py`) nhưng từ 2026 Docker
+Space trên CPU free yêu cầu gói **PRO** trả phí.
 
 ---
 

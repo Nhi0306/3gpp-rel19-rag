@@ -18,4 +18,5 @@ RUN mkdir -p Rel-19/rag && \
 
 EXPOSE 7860
 
-CMD ["python", "scripts/rag_serve.py", "--host", "0.0.0.0", "--port", "7860"]
+# Render/HF deu truyen PORT; mac dinh 7860 cho Hugging Face Spaces
+CMD ["sh", "-c", "python scripts/rag_serve.py --host 0.0.0.0 --port ${PORT:-7860}"]
