@@ -62,20 +62,18 @@ def main() -> None:
     parser.add_argument("--timeout", type=int, default=900, help="thoi gian cho toi da (giay)")
     args = parser.parse_args()
 
-    token = (args.token or "").strip()
-    if not token:
-        _fail("thieu HF_TOKEN. Tao token quyen Write tai https://huggingface.co/settings/tokens "
-              "roi them vao .env: HF_TOKEN=hf_...")
-
+    token = (args.token or os.getenv("HF_TOKEN") or "").strip()
     for key in SECRETS:
         if not CFG.get(key):
             _fail(f"thieu {key} trong .env")
 
-    api = HfApi(token=token)
+    # khong co HF_TOKEN -> dung phien da dang nhap bang `hf auth login`
+    api = HfApi(token=token or None)
     try:
         me = api.whoami()
     except Exception as exc:  # noqa: BLE001
-        _fail(f"HF token khong hop le: {exc}")
+        _fail("chua dang nhap Hugging Face. Them HF_TOKEN (quyen Write) vao .env "
+              "hoac chay `hf auth login`. Chi tiet: " + str(exc))
     user = me.get("name") or me.get("user") or ""
     repo_id = f"{user}/{args.space}"
 
