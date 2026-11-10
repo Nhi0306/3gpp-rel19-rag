@@ -220,32 +220,7 @@ Cập nhật hàng tuần: Task Scheduler `3GPP-Rel19-WeeklyUpdate` chạy **Ch�
 
 ---
 
-## 9. Deploy (Render)
-
-Web chạy công khai trên Render (Docker, gói Free) để chia sẻ bằng link:
-
-**https://&lt;service-name&gt;.onrender.com**
-
-`render.yaml` khai báo sẵn service, biến môi trường và gói `free`. Cách deploy:
-
-1. Đăng ký Render bằng tài khoản GitHub: https://dashboard.render.com/register
-2. **New → Blueprint** → chọn repo `3gpp-rel19-rag` → **Apply**.
-3. Điền 3 secret khi Render hỏi: `QDRANT_URL`, `QDRANT_API_KEY`, `OPENROUTER_API_KEY`.
-4. Chờ build ~5 phút, mở link `https://<service-name>.onrender.com`.
-
-`Dockerfile` dùng `python:3.12-slim`, giải nén `data/bm25-stats.json.gz` thành
-`Rel-19/rag/bm25-stats.json`, lắng nghe `$PORT` do Render cấp.
-
-Giới hạn của gói free: 512 MB RAM, 0.1 CPU; service **ngủ sau 15 phút** không có
-request (mở lại chậm ~1–2 phút); 750 giờ chạy/tháng; đĩa tạm nên lịch sử phiên
-mất khi restart; quota/rate limit chỉ lưu trong bộ nhớ tiến trình.
-
-Hugging Face Spaces vẫn dùng được (`scripts/deploy_hf.py`) nhưng từ 2026 Docker
-Space trên CPU free yêu cầu gói **PRO** trả phí.
-
----
-
-## 10. Kết quả hiện tại
+## 9. Kết quả hiện tại
 
 - **1.687** spec Rel-19 → **214.013** chunk (đã bỏ bảng `change history`).
 - Qdrant dense: **214.013** point; sparse BM25: **214.013** point.
@@ -254,7 +229,7 @@ Space trên CPU free yêu cầu gói **PRO** trả phí.
 
 ---
 
-## 11. Giới hạn đã biết
+## 10. Giới hạn đã biết
 
 - Qdrant không hỗ trợ thêm sparse vector vào collection đã tồn tại → phải tách
   `3gpp_rel19_sparse` và hợp nhất phía client.

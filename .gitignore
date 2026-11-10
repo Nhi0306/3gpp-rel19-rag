@@ -16,6 +16,3 @@ __pycache__/
 *.pyc
 .venv/
 venv/
-
-# tunnel binary
-tools/

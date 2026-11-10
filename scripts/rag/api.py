@@ -126,62 +126,6 @@ def health() -> dict:
     }
 
 
-@app.get("/api/diag")
-def diag() -> dict:
-    """Chan doan nhanh cau hinh tren server (khong lo gia tri secret)."""
-    out: dict = {
-        "env": {
-            k: bool(CFG.get(k))
-            for k in ("QDRANT_URL", "QDRANT_API_KEY", "OPENROUTER_API_KEY")
-        },
-        "profile": CFG["RAG_PROFILE"],
-    }
-    try:
-        from rag.paths import BM25_STATS
-        info = {"path": str(BM25_STATS), "exists": BM25_STATS.exists()}
-        if BM25_STATS.exists():
-            info["mb"] = round(BM25_STATS.stat().st_size / 1e6, 1)
-            from rag import retrieval
-            info["N"] = retrieval.stats().n_docs
-        out["bm25"] = info
-    except Exception as exc:  # noqa: BLE001
-        out["bm25"] = {"error": str(exc)}
-    try:
-        from rag import retrieval
-        cli = retrieval.client()
-        cols = [c.name for c in cli.get_collections().collections]
-        out["qdrant"] = {
-            "collections": cols,
-            "dense_count": cli.count(CFG["QDRANT_COLLECTION"], exact=False).count,
-        }
-    except Exception as exc:  # noqa: BLE001
-        out["qdrant"] = {"error": str(exc)}
-    return out
-
-
-@app.get("/api/diag/search", dependencies=[Depends(guard)])
-def diag_search(q: str) -> dict:
-    """Chay thu retrieval cho mot cau hoi (ton 1 lan embedding)."""
-    from rag import retrieval
-    try:
-        hits = retrieval.search(q)
-    except Exception as exc:  # noqa: BLE001
-        return {"ok": False, "error": str(exc)}
-    return {
-        "ok": True,
-        "hits": len(hits),
-        "top": [
-            {
-                "spec": (h.get("payload") or {}).get("spec"),
-                "section": (h.get("payload") or {}).get("section"),
-                "score": round(h.get("score", 0), 3),
-                "source": h.get("source"),
-            }
-            for h in hits[:5]
-        ],
-    }
-
-
 @app.post("/api/sessions")
 def create_session() -> dict:
     return {"id": db.create_session()}
