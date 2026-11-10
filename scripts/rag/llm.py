@@ -97,18 +97,39 @@ def call_json(
     agent: str, system: str, user: str, schema: type[T],
     temperature: float = 0.0, retries: int = 2,
 ) -> tuple[T, Usage]:
-    """Goi LLM va parse JSON theo schema; tu retry khi model tra loi hong."""
+    """Goi LLM va parse JSON theo schema; uu tien structured output, co fallback."""
     llm = chat_model(agent, temperature=temperature)
+    structured = None
+    try:
+        structured = llm.with_structured_output(schema, include_raw=True, method="json_schema")
+    except Exception as exc:  # noqa: BLE001
+        log.warning("llm %s: khong tao duoc structured output (%s)", agent, exc)
+
     last: Exception | None = None
     for attempt in range(retries + 1):
         started = time.time()
         try:
+            if structured is not None:
+                out = structured.invoke([("system", system), ("human", user)])
+                msg = out.get("raw")
+                parsed = out.get("parsed")
+                usage = _usage(msg, agent, started) if msg is not None else Usage(agent=agent, model=model_name(agent))
+                if parsed is None:
+                    raise ValueError(str(out.get("parsing_error") or "structured output rỗng"))
+                return parsed, usage
+
             msg = llm.invoke([("system", system), ("human", user)])
             usage = _usage(msg, agent, started)
             data = json.loads(_extract_json(str(msg.content)))
             return schema.model_validate(data), usage
         except Exception as exc:  # noqa: BLE001
             last = exc
+            text = str(exc).lower()
+            if structured is not None and (
+                "response_format" in text or "json_schema" in text or "structured" in text
+            ):
+                structured = None
+                log.warning("llm %s: structured output khong ho tro, chuyen sang parse JSON", agent)
             log.warning("llm %s: JSON lỗi (lần %d) - %s", agent, attempt + 1, exc)
             time.sleep(1 + attempt)
     raise RuntimeError(f"{agent}: không parse được JSON sau {retries + 1} lần: {last}")

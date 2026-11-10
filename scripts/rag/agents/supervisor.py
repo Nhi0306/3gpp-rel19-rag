@@ -14,10 +14,14 @@ Nhiệm vụ: phân tích câu hỏi và trả về DUY NHẤT một JSON theo s
 {schema}
 
 Quy tắc:
-- specs: số hiệu spec nếu người dùng nhắc tới (vd "23.501", "38.304", "33.501"). Để rỗng nếu không rõ.
+- specs: số hiệu spec nếu người dùng nhắc tới. LUÔN chuẩn hoá về dạng số, ví dụ
+  "TS 23.501" -> "23.501", "spec 38.304" -> "38.304". Để rỗng chỉ khi câu hỏi không nêu spec nào.
 - section: số điều khoản nếu được nhắc (vd "5.7.1", "7.4"). Để rỗng nếu không có.
 - sub_queries: 1-3 truy vấn tiếng Anh độc lập, giàu thuật ngữ 3GPP, dùng để tìm kiếm.
+  TUYỆT ĐỐI không sao chép nguyên văn câu hỏi tiếng Việt; luôn dịch/viết lại sang tiếng Anh.
   Nếu câu hỏi so sánh nhiều khía cạnh, tách thành nhiều truy vấn.
+  Ví dụ: "TS 23.501 quy định gì về PDU Session?" ->
+  specs=["23.501"], sub_queries=["PDU Session establishment and management 5GS"].
 - Nếu câu hỏi nối tiếp ngữ cảnh hội thoại trước (đại từ "nó", "còn ... thì sao"),
   hãy viết lại thành câu đầy đủ dựa trên lịch sử.
 - language: "vi" nếu người dùng hỏi tiếng Việt, ngược lại "en".
