@@ -103,6 +103,19 @@ def touch_session(sid: str, title: str | None = None) -> None:
             con.execute("UPDATE sessions SET updated_at=? WHERE id=?", (now(), sid))
 
 
+def delete_session(sid: str) -> bool:
+    """Xoa phien, toan bo turn/citation va log LLM cua phien."""
+    with connect() as con:
+        ids = [r["id"] for r in con.execute(
+            "SELECT id FROM turns WHERE session_id=?", (sid,)
+        ).fetchall()]
+        if ids:
+            marks = ",".join("?" * len(ids))
+            con.execute(f"DELETE FROM llm_calls WHERE turn_id IN ({marks})", ids)
+        cur = con.execute("DELETE FROM sessions WHERE id=?", (sid,))
+        return cur.rowcount > 0
+
+
 def list_sessions(limit: int = 50) -> list[dict]:
     with connect() as con:
         rows = con.execute(

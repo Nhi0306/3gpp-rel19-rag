@@ -32,9 +32,18 @@
   .sess {
     padding: 9px 10px; border-radius: 8px; cursor: pointer; margin-bottom: 4px;
     color: var(--muted); border: 1px solid transparent;
+    display: flex; align-items: center; gap: 6px;
   }
   .sess:hover { background: var(--panel2); }
   .sess.active { background: var(--panel2); border-color: var(--line); color: var(--txt); }
+  .sess-main { flex: 1; min-width: 0; }
+  .sess-del {
+    flex: 0 0 auto; opacity: 0; border: 0; background: transparent; color: var(--muted);
+    cursor: pointer; font-size: 16px; line-height: 1; padding: 2px 5px; border-radius: 6px;
+    transition: opacity .15s, color .15s, background .15s;
+  }
+  .sess:hover .sess-del, .sess.active .sess-del { opacity: .6; }
+  .sess-del:hover { opacity: 1; color: #ff7b7b; background: rgba(255, 123, 123, .12); }
   .sess b { display: block; font-weight: 600; font-size: 13.5px; color: inherit;
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .sess small { font-size: 11.5px; opacity: .8; }
@@ -258,10 +267,30 @@ async function loadSessions(active) {
     for (const s of list) {
       const el = document.createElement("div");
       el.className = "sess" + (s.id === active ? " active" : "");
-      el.innerHTML = `<b></b><small></small>`;
-      el.querySelector("b").textContent = s.title || "Phiên mới";
-      el.querySelector("small").textContent = `${s.turns} lượt · ${(s.updated_at || "").slice(5, 16)}`;
-      el.addEventListener("click", () => openSession(s.id));
+      const main = document.createElement("div");
+      main.className = "sess-main";
+      main.innerHTML = "<b></b><small></small>";
+      main.querySelector("b").textContent = s.title || "Phiên mới";
+      main.querySelector("small").textContent = `${s.turns} lượt · ${(s.updated_at || "").slice(5, 16)}`;
+      main.addEventListener("click", () => openSession(s.id));
+      const del = document.createElement("button");
+      del.className = "sess-del";
+      del.type = "button";
+      del.title = "Xoá phiên";
+      del.textContent = "×";
+      del.addEventListener("click", async (ev) => {
+        ev.stopPropagation();
+        if (!confirm(`Xoá "${s.title || "Phiên mới"}"?`)) return;
+        try {
+          await fetch(`/api/sessions/${s.id}`, { method: "DELETE" });
+          if (state.sid === s.id) newSession();
+          else loadSessions(active);
+        } catch (e) {
+          alert("Không xoá được phiên: " + e);
+        }
+      });
+      el.appendChild(main);
+      el.appendChild(del);
       box.appendChild(el);
     }
   } catch (e) { /* ignore */ }

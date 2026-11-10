@@ -131,6 +131,9 @@ Mỗi lượt mới đọc **5 turn gần nhất** từ DB (mỗi câu trả l�
 Tóm tắt 2 câu đầu của câu trả lời được lưu riêng (`answer_summary`) để giảm token
 khi đưa vào lịch sử. Không dùng checkpointer của LangGraph — SQL là nguồn duy nhất.
 
+Người dùng có thể xoá phiên bằng nút **×** cạnh tên phiên trong sidebar
+(`DELETE /api/sessions/{id}`); thao tác này xoá luôn toàn bộ turn, citation và log LLM của phiên.
+
 ---
 
 ## 6. Giao diện

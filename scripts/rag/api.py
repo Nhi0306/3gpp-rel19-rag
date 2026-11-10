@@ -198,6 +198,11 @@ def get_session(sid: str) -> dict:
     return {"id": sid, "turns": turns}
 
 
+@app.delete("/api/sessions/{sid}")
+def delete_session(sid: str) -> dict:
+    return {"ok": db.delete_session(sid)}
+
+
 @app.post("/api/chat", dependencies=[Depends(guard)])
 def chat(body: ChatIn) -> dict:
     sid = _session(body.session_id)
