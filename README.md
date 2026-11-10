@@ -102,7 +102,7 @@ Tokenizer giữ cụm kỹ thuật (`ng-ran`, `23.501`, `4.2.3`) và tách thêm
 | 1 | **Supervisor** | hiểu câu hỏi, trích `spec`/`section`, viết lại 1–3 sub-query tiếng Anh, dùng lịch sử nếu là câu nối tiếp | `gpt-4o-mini` |
 | 2 | **Retriever** | fan-out `Send` theo từng sub-query, chạy dense ∥ sparse, fuse, mở rộng lân cận | — |
 | 3 | **Grader** | chấm đoạn nào thực sự liên quan, quyết định đã đủ thông tin chưa | `gpt-4o-mini` |
-| 4 | **Synthesizer** | trả lời tiếng Việt, mỗi ý kèm `[n]`, có mục “Nguồn” | `gpt-4o-mini` |
+| 4 | **Synthesizer** | trả lời tiếng Việt, mỗi ý kèm `[n]`, có mục “Nguồn” | `gpt-5-mini` (reasoning low) |
 | 5 | **Verifier** | kiểm tra trích dẫn có tồn tại và có hỗ trợ nội dung; retry 1 lần | `gpt-4o-mini` |
 
 **Refine**: nếu Grader báo thiếu thông tin, quay lại Supervisor để viết truy vấn mới,
@@ -178,6 +178,10 @@ Chọn profile qua `RAG_PROFILE` trong `.env`:
 | `cheap` | `openai/gpt-4o-mini` | ~$0.005 |
 | `balanced` | `openai/gpt-4.1-mini` | ~$0.01–0.015 |
 | `quality` | `anthropic/claude-sonnet-4.5` | ~$0.05+ |
+
+Cấu hình đang chạy trên Render: Synthesizer dùng `SYNTH_MODEL=openai/gpt-5-mini`
+(`SYNTH_REASONING_EFFORT=low`), 3 agent còn lại dùng `gpt-4o-mini`; chi phí thực đo
+~$0.0017/câu.
 
 Các biến chính:
 

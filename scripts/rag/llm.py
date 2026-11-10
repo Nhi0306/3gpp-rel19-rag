@@ -38,26 +38,40 @@ def model_name(agent: str) -> str:
     return CFG[_AGENT_KEY.get(agent, "SYNTH_MODEL")]
 
 
+def _is_reasoning(model: str) -> bool:
+    """Model reasoning (gpt-5...) khong nhan temperature, dung max_completion_tokens."""
+    return "gpt-5" in (model or "").lower()
+
+
 def chat_model(
     agent: str, temperature: float | None = None, max_tokens: int | None = None,
     model: str | None = None,
 ) -> ChatOpenAI:
     if max_tokens is None:
         max_tokens = CFG["SYNTH_MAX_TOKENS"] if agent == "synthesizer" else CFG["LLM_MAX_TOKENS"]
-    return ChatOpenAI(
-        model=model or model_name(agent),
-        api_key=CFG["OPENROUTER_API_KEY"],
-        base_url=CFG["OPENROUTER_BASE_URL"],
-        temperature=CFG["LLM_TEMPERATURE"] if temperature is None else temperature,
-        max_tokens=max_tokens,
-        timeout=CFG["LLM_TIMEOUT"],
-        max_retries=2,
-        stream_usage=True,
-        default_headers={
+    name = model or model_name(agent)
+    kwargs: dict = {
+        "model": name,
+        "api_key": CFG["OPENROUTER_API_KEY"],
+        "base_url": CFG["OPENROUTER_BASE_URL"],
+        "timeout": CFG["LLM_TIMEOUT"],
+        "max_retries": 2,
+        "stream_usage": True,
+        "default_headers": {
             "HTTP-Referer": CFG["OPENROUTER_SITE_URL"] or "http://localhost",
             "X-Title": CFG["OPENROUTER_APP_NAME"],
         },
-    )
+    }
+    if _is_reasoning(name):
+        kwargs["reasoning_effort"] = (
+            CFG["SYNTH_REASONING_EFFORT"] if agent == "synthesizer"
+            else CFG["LLM_REASONING_EFFORT"]
+        )
+        kwargs["max_completion_tokens"] = max_tokens
+    else:
+        kwargs["temperature"] = CFG["LLM_TEMPERATURE"] if temperature is None else temperature
+        kwargs["max_tokens"] = max_tokens
+    return ChatOpenAI(**kwargs)
 
 
 def _usage(msg, agent: str, started: float, model: str | None = None) -> Usage:
