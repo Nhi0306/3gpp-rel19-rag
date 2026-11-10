@@ -220,7 +220,37 @@ Cập nhật hàng tuần: Task Scheduler `3GPP-Rel19-WeeklyUpdate` chạy **Ch�
 
 ---
 
-## 9. Kết quả hiện tại
+## 9. Deploy (Hugging Face Spaces)
+
+Web chạy công khai trên Hugging Face Spaces (Docker) để chia sẻ bằng link:
+
+**https://huggingface.co/spaces/&lt;username&gt;/3gpp-rel19-rag**
+
+Cấu hình khi deploy (đặt trong Space → Settings → Variables and secrets):
+
+| Loại | Biến |
+|---|---|
+| Secret | `QDRANT_URL`, `QDRANT_API_KEY`, `OPENROUTER_API_KEY` |
+| Variable | `RAG_PROFILE=cheap`, `RAG_MAX_REFINE=1`, `RAG_DAILY_LIMIT=100`, `RAG_RATE_PER_MIN=10`, `RAG_MAX_QUESTION_CHARS=2000` |
+
+`Dockerfile` dùng `python:3.12-slim`, giải nén `data/bm25-stats.json.gz` thành
+`Rel-19/rag/bm25-stats.json` và chạy server ở cổng 7860. Lệnh deploy:
+
+```powershell
+pip install huggingface_hub
+python scripts\deploy_hf.py --space 3gpp-rel19-rag --wait
+```
+
+Script tạo Space public, upload mã nguồn (bỏ `Rel-19/`, `.env`, log, cache),
+đặt secrets/variables rồi chờ build. Cập nhật code sau này chỉ cần chạy lại lệnh trên.
+
+Lưu ý: Space free tự ngủ khi không dùng (mở lại chậm ~30–60 giây); SQLite nằm
+trên đĩa tạm nên lịch sử phiên mất khi restart; quota và rate limit ở trên chỉ
+lưu trong bộ nhớ tiến trình.
+
+---
+
+## 10. Kết quả hiện tại
 
 - **1.687** spec Rel-19 → **214.013** chunk (đã bỏ bảng `change history`).
 - Qdrant dense: **214.013** point; sparse BM25: **214.013** point.
@@ -229,7 +259,7 @@ Cập nhật hàng tuần: Task Scheduler `3GPP-Rel19-WeeklyUpdate` chạy **Ch�
 
 ---
 
-## 10. Giới hạn đã biết
+## 11. Giới hạn đã biết
 
 - Qdrant không hỗ trợ thêm sparse vector vào collection đã tồn tại → phải tách
   `3gpp_rel19_sparse` và hợp nhất phía client.

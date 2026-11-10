@@ -100,6 +100,10 @@ CFG = {
     "RAG_NEIGHBOR_WINDOW": _i("RAG_NEIGHBOR_WINDOW", 1),
     "RAG_MIN_SCORE": _f("RAG_MIN_SCORE", 0.35),
     "RAG_EVIDENCE_CHARS": _i("RAG_EVIDENCE_CHARS", 1800),
+    # gioi han cho web cong khai
+    "RAG_RATE_PER_MIN": _i("RAG_RATE_PER_MIN", 10),
+    "RAG_DAILY_LIMIT": _i("RAG_DAILY_LIMIT", 100),
+    "RAG_MAX_QUESTION_CHARS": _i("RAG_MAX_QUESTION_CHARS", 2000),
     "RAG_HISTORY_TURNS": _i("RAG_HISTORY_TURNS", 5),
     "RAG_HISTORY_CHARS": _i("RAG_HISTORY_CHARS", 700),
     "RAG_DB": _s("RAG_DB", str(REL19_ROOT / "rag" / "rag.sqlite")),

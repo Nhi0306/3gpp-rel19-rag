@@ -4,9 +4,12 @@ from __future__ import annotations
 import json
 import queue
 import threading
+import time
+from collections import defaultdict, deque
+from datetime import date
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -18,6 +21,10 @@ from rag.graph import graph
 from rag.stream import token_sink
 
 WEB_DIR = Path(__file__).resolve().parent / "web"
+
+MAX_QUESTION_CHARS = int(CFG["RAG_MAX_QUESTION_CHARS"])
+RATE_PER_MIN = int(CFG["RAG_RATE_PER_MIN"])
+DAILY_LIMIT = int(CFG["RAG_DAILY_LIMIT"])
 
 app = FastAPI(title="3GPP Rel-19 RAG", version="1.0")
 app.add_middleware(
@@ -32,7 +39,55 @@ db.init_db()
 
 class ChatIn(BaseModel):
     session_id: str | None = None
-    question: str = Field(min_length=1, max_length=4000)
+    question: str = Field(min_length=1, max_length=MAX_QUESTION_CHARS)
+
+
+# ---- gioi han cho web cong khai (in-memory, du cho 1 instance demo) ----
+_lock = threading.Lock()
+_hits: dict[str, deque[float]] = defaultdict(deque)
+_day = {"date": date.today(), "count": 0}
+
+
+def _client_ip(request: Request) -> str:
+    forwarded = request.headers.get("x-forwarded-for", "")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
+
+
+def guard(request: Request) -> None:
+    """Chan bot/spam: toi da RATE_PER_MIN cau/phut moi IP, DAILY_LIMIT cau/ngay."""
+    now = time.time()
+    ip = _client_ip(request)
+    with _lock:
+        today = date.today()
+        if _day["date"] != today:
+            _day["date"], _day["count"] = today, 0
+        if _day["count"] >= DAILY_LIMIT:
+            raise HTTPException(
+                status_code=429,
+                detail="Đã đạt giới hạn câu hỏi trong ngày. Vui lòng quay lại ngày mai.",
+            )
+        hits = _hits[ip]
+        while hits and now - hits[0] > 60:
+            hits.popleft()
+        if len(hits) >= RATE_PER_MIN:
+            raise HTTPException(
+                status_code=429,
+                detail="Bạn hỏi quá nhanh. Vui lòng thử lại sau ít phút.",
+            )
+        hits.append(now)
+        _day["count"] += 1
+
+
+def _quota() -> dict:
+    with _lock:
+        return {
+            "used": _day["count"],
+            "limit": DAILY_LIMIT,
+            "rate_per_min": RATE_PER_MIN,
+            "max_chars": MAX_QUESTION_CHARS,
+        }
 
 
 def _session(sid: str | None) -> str:
@@ -67,6 +122,7 @@ def health() -> dict:
         "profile": CFG["RAG_PROFILE"],
         "synth_model": CFG["SYNTH_MODEL"],
         "db": str(CFG["RAG_DB"]),
+        "quota": _quota(),
     }
 
 
@@ -86,7 +142,7 @@ def get_session(sid: str) -> dict:
     return {"id": sid, "turns": turns}
 
 
-@app.post("/api/chat")
+@app.post("/api/chat", dependencies=[Depends(guard)])
 def chat(body: ChatIn) -> dict:
     sid = _session(body.session_id)
     try:
@@ -99,7 +155,7 @@ def chat(body: ChatIn) -> dict:
     return _result(state, sid)
 
 
-@app.post("/api/chat/stream")
+@app.post("/api/chat/stream", dependencies=[Depends(guard)])
 def chat_stream(body: ChatIn) -> StreamingResponse:
     sid = _session(body.session_id)
     events: queue.Queue = queue.Queue()

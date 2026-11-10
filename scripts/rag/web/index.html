@@ -237,8 +237,13 @@ async function loadHealth() {
   try {
     const r = await fetch("/api/health");
     const h = await r.json();
-    $("#health").textContent = `${h.synth_model} · ${h.profile}`;
+    const q = h.quota || {};
+    $("#health").textContent = q.limit
+      ? `${h.synth_model} · ${Math.max(0, q.limit - q.used)}/${q.limit} câu còn lại`
+      : `${h.synth_model} · ${h.profile}`;
     $("#hint").textContent = `hybrid 70% vector · 30% BM25 · ${h.sparse_collection}`;
+    if (q.max_chars) $("#q").maxLength = q.max_chars;
+    return h;
   } catch (e) {
     $("#health").textContent = "mất kết nối API";
   }
@@ -315,7 +320,15 @@ async function send() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ session_id: state.sid, question: text }),
     });
-    if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      let detail = `HTTP ${res.status}`;
+      try {
+        const err = await res.json();
+        if (err && err.detail) detail = err.detail;
+      } catch (e) { /* khong phai JSON */ }
+      throw new Error(detail);
+    }
+    if (!res.body) throw new Error("trình duyệt không hỗ trợ streaming");
 
     const reader = res.body.getReader();
     const dec = new TextDecoder();
