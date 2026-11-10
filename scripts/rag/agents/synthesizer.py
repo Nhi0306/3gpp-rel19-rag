@@ -52,10 +52,10 @@ def synthesizer(state: RAGState) -> dict:
         text, usage = call_text("synthesizer", SYSTEM, user, temperature=0.25)
 
     if not text:
-        log.warning("synthesizer trả rỗng, thử lại bằng gemini-2.5-flash")
+        log.warning("synthesizer trả rỗng, thử lại bằng gpt-4o-mini")
         text, usage = call_text(
             "synthesizer", SYSTEM, user, temperature=0.25,
-            model="google/gemini-2.5-flash", retries=2,
+            model="openai/gpt-4o-mini", retries=2,
         )
     if not text:
         text = (

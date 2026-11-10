@@ -97,13 +97,13 @@ Tokenizer giữ cụm kỹ thuật (`ng-ran`, `23.501`, `4.2.3`) và tách thêm
 
 ## 4. Luồng tác tử
 
-| # | Agent | Nhiệm vụ | Model (profile `balanced`) |
+| # | Agent | Nhiệm vụ | Model |
 |---|---|---|---|
-| 1 | **Supervisor** | hiểu câu hỏi, trích `spec`/`section`, viết lại 1–3 sub-query tiếng Anh, dùng lịch sử nếu là câu nối tiếp | `gemini-2.5-flash` |
+| 1 | **Supervisor** | hiểu câu hỏi, trích `spec`/`section`, viết lại 1–3 sub-query tiếng Anh, dùng lịch sử nếu là câu nối tiếp | `gpt-4o-mini` |
 | 2 | **Retriever** | fan-out `Send` theo từng sub-query, chạy dense ∥ sparse, fuse, mở rộng lân cận | — |
-| 3 | **Grader** | chấm đoạn nào thực sự liên quan, quyết định đã đủ thông tin chưa | `gemini-2.5-flash` |
-| 4 | **Synthesizer** | trả lời tiếng Việt, mỗi ý kèm `[n]`, có mục “Nguồn” | `gemini-2.5-pro` |
-| 5 | **Verifier** | kiểm tra trích dẫn có tồn tại và có hỗ trợ nội dung; retry 1 lần | `gemini-2.5-flash` |
+| 3 | **Grader** | chấm đoạn nào thực sự liên quan, quyết định đã đủ thông tin chưa | `gpt-4o-mini` |
+| 4 | **Synthesizer** | trả lời tiếng Việt, mỗi ý kèm `[n]`, có mục “Nguồn” | `gpt-4o-mini` |
+| 5 | **Verifier** | kiểm tra trích dẫn có tồn tại và có hỗ trợ nội dung; retry 1 lần | `gpt-4o-mini` |
 
 **Refine**: nếu Grader báo thiếu thông tin, quay lại Supervisor để viết truy vấn mới,
 tối đa **2 vòng**. Khi evidence đã có ≥ 8 đoạn và ≥ 6 đoạn điểm cao (≥ 0.35),
@@ -172,8 +172,8 @@ Chọn profile qua `RAG_PROFILE` trong `.env`:
 
 | Profile | Synthesizer | Chi phí ước tính / câu |
 |---|---|---|
-| `cheap` | `google/gemini-2.5-flash` | ~$0.01 |
-| `balanced` | `google/gemini-2.5-pro` | ~$0.03–0.05 |
+| `cheap` | `openai/gpt-4o-mini` | ~$0.005 |
+| `balanced` | `openai/gpt-4.1-mini` | ~$0.01–0.015 |
 | `quality` | `anthropic/claude-sonnet-4.5` | ~$0.05+ |
 
 Các biến chính:
@@ -189,7 +189,7 @@ Các biến chính:
 | `SYNTH_MAX_TOKENS` | 8192 | ngân sách token cho câu trả lời |
 
 `LLM_MAX_TOKENS` (mặc định 4096) dùng cho các agent JSON; Synthesizer dùng
-`SYNTH_MAX_TOKENS` vì Gemini tiêu tốn nhiều token suy luận trước khi viết.
+`SYNTH_MAX_TOKENS` để câu trả lời dài không bị cắt.
 
 ---
 
@@ -233,8 +233,7 @@ Cập nhật hàng tuần: Task Scheduler `3GPP-Rel19-WeeklyUpdate` chạy **Ch�
 
 - Qdrant không hỗ trợ thêm sparse vector vào collection đã tồn tại → phải tách
   `3gpp_rel19_sparse` và hợp nhất phía client.
-- Gemini 2.5 tiêu tốn ~1.2–1.5k token suy luận cho mỗi lần sinh; nếu `max_tokens`
-  quá thấp, câu trả lời có thể rỗng. Vì vậy Synthesizer có ngân sách riêng và
-  fallback sang `gemini-2.5-flash` khi nội dung rỗng.
+- Nếu `max_tokens` quá thấp, câu trả lời có thể rỗng. Vì vậy Synthesizer có ngân
+  sách riêng (`SYNTH_MAX_TOKENS`) và fallback sang `gpt-4o-mini` khi nội dung rỗng.
 - Nếu sparse index chưa sẵn sàng, retrieval tự fallback về dense-only.
 - Corpus chỉ gồm Rel-19; câu hỏi về release khác sẽ được trả lời là thiếu dữ liệu.

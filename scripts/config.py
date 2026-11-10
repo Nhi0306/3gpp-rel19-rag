@@ -36,8 +36,8 @@ REL19_ROOT = Path(_s("REL19_ROOT", str(ROOT / "Rel-19")))
 
 # model tong hop theo profile (chi ap dung khi khong dat SYNTH_MODEL)
 _PROFILE_SYNTH = {
-    "cheap": "google/gemini-2.5-flash",
-    "balanced": "google/gemini-2.5-pro",
+    "cheap": "openai/gpt-4o-mini",
+    "balanced": "openai/gpt-4.1-mini",
     "quality": "anthropic/claude-sonnet-4.5",
 }
 _PROFILE = _s("RAG_PROFILE", "balanced").lower()
@@ -81,9 +81,9 @@ CFG = {
     "LOG_LEVEL": _s("LOG_LEVEL", "INFO").upper(),
     # ---- RAG / LLM ----
     "RAG_PROFILE": _PROFILE,
-    "PLANNER_MODEL": _s("PLANNER_MODEL", "google/gemini-2.5-flash"),
-    "GRADER_MODEL": _s("GRADER_MODEL", "google/gemini-2.5-flash"),
-    "VERIFIER_MODEL": _s("VERIFIER_MODEL", "google/gemini-2.5-flash"),
+    "PLANNER_MODEL": _s("PLANNER_MODEL", "openai/gpt-4o-mini"),
+    "GRADER_MODEL": _s("GRADER_MODEL", "openai/gpt-4o-mini"),
+    "VERIFIER_MODEL": _s("VERIFIER_MODEL", "openai/gpt-4o-mini"),
     "SYNTH_MODEL": _s("SYNTH_MODEL") or _PROFILE_SYNTH.get(_PROFILE, _PROFILE_SYNTH["balanced"]),
     "LLM_TEMPERATURE": _f("LLM_TEMPERATURE", 0.2),
     "LLM_MAX_TOKENS": _i("LLM_MAX_TOKENS", 4096),

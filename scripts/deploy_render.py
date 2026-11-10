@@ -24,7 +24,10 @@ SERVICE = "3gpp-rel19-rag"
 
 WANTED = {
     "RAG_PROFILE": "cheap",
-    "SYNTH_MODEL": "google/gemini-2.5-flash",
+    "PLANNER_MODEL": "openai/gpt-4o-mini",
+    "GRADER_MODEL": "openai/gpt-4o-mini",
+    "VERIFIER_MODEL": "openai/gpt-4o-mini",
+    "SYNTH_MODEL": "openai/gpt-4o-mini",
     "RAG_MAX_REFINE": "1",
     "RAG_DAILY_LIMIT": "100",
     "RAG_RATE_PER_MIN": "10",
