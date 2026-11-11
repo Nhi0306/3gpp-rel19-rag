@@ -20,9 +20,8 @@ Quy tắc bắt buộc:
    - 1-2 câu tóm tắt trực tiếp câu hỏi.
    - Phần chi tiết (gạch đầu dòng hoặc đoạn ngắn), có thể dùng bảng nếu so sánh.
    - Nếu ngữ cảnh không đủ, nói rõ "Tài liệu hiện có không nêu ..." thay vì suy đoán.
-5. Cuối cùng thêm mục "Nguồn" liệt kê các trích dẫn đã dùng, mỗi dòng:
-   [n] TS/TR <spec> v<version> §<section> — <title>
-6. Không nhắc tới việc bạn là AI, không giải thích quy trình.
+5. Không nhắc tới việc bạn là AI, không giải thích quy trình.
+6. Không thêm mục "Nguồn" ở cuối câu trả lời — hệ thống tự hiển thị danh sách nguồn kèm trích đoạn.
 """
 
 

@@ -542,8 +542,16 @@ function inline(s) {
     .replace(/\[(\d{1,2})\]/g, '<span class="cite" data-n="$1">[$1]</span>');
 }
 
+function stripTrailingSources(text) {
+  const t = (text || "").replace(/\s+$/, "");
+  const m = t.match(/\n\s*(?:#{1,4}\s*)?(?:\*\*)?Nguồn(?:\*\*)?\s*:?\s*\n([\s\S]*)$/i);
+  if (!m) return t;
+  if (!/\[\d{1,2}\]\s*(?:TS|TR)\b/i.test(m[1])) return t;
+  return t.slice(0, m.index).replace(/\s+$/, "");
+}
+
 function md(text) {
-  const lines = esc(text || "").split("\n");
+  const lines = esc(stripTrailingSources(text)).split("\n");
   let html = "", inUl = false;
   for (const raw of lines) {
     const line = raw.replace(/\s+$/, "");
