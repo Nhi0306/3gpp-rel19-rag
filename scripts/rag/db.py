@@ -139,6 +139,19 @@ def session_turns(sid: str) -> list[dict]:
     return turns
 
 
+def session_llm_calls(sid: str) -> list[dict]:
+    """Lich su goi LLM cua phien (dung cho cot 'Hoat dong' khi mo lai phien)."""
+    with connect() as con:
+        rows = con.execute(
+            """SELECT c.turn_id, t.turn_index, c.agent, c.model, c.latency_ms,
+                      c.tokens_in, c.tokens_out, c.status
+               FROM llm_calls c JOIN turns t ON t.id = c.turn_id
+               WHERE t.session_id=? ORDER BY t.turn_index, c.id""",
+            (sid,),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
 def recent_turns(sid: str, limit: int = 5) -> list[dict]:
     with connect() as con:
         rows = con.execute(

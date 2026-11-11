@@ -16,7 +16,7 @@
     background: var(--bg); color: var(--txt);
     font: 15px/1.6 "Segoe UI", system-ui, -apple-system, sans-serif;
   }
-  .app { display: flex; height: 100%; }
+  .app { display: flex; height: 100%; --activity-w: 300px; }
   aside {
     width: 280px; flex: 0 0 280px; background: var(--panel);
     border-right: 1px solid var(--line); display: flex; flex-direction: column;
@@ -49,6 +49,59 @@
   .sess small { font-size: 11.5px; opacity: .8; }
   .foot { padding: 10px 14px; border-top: 1px solid var(--line); color: var(--muted); font-size: 11.5px; }
   main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  aside.activity {
+    width: var(--activity-w); flex: 0 0 var(--activity-w); background: var(--panel);
+    border-left: 1px solid var(--line); display: flex; flex-direction: column;
+    min-width: 0;
+  }
+  .app.act-hidden aside.activity, .app.act-hidden .resizer { display: none; }
+  .resizer { flex: 0 0 5px; cursor: col-resize; transition: background .15s; }
+  .resizer:hover, .resizer.dragging { background: var(--accent); opacity: .45; }
+  .act-head {
+    padding: 15px 16px 10px; display: flex; flex-direction: column; gap: 5px;
+    border-bottom: 1px solid var(--line);
+  }
+  .act-title { font-weight: 700; font-size: 14px; letter-spacing: .3px; }
+  .act-status { font-size: 11.5px; color: var(--muted); }
+  .act-status.busy { color: #9dc0ff; }
+  .act-status.ok { color: var(--accent2); }
+  .act-status.err { color: var(--err); }
+  .act-list { flex: 1; overflow: auto; padding: 8px 10px 16px; }
+  .act-empty { color: var(--muted); font-size: 12.5px; padding: 14px 8px; line-height: 1.5; }
+  .act-turn {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted);
+    margin: 12px 6px 4px; padding-top: 8px; border-top: 1px dashed var(--line);
+  }
+  .act-turn:first-child { border-top: 0; margin-top: 4px; padding-top: 0; }
+  .act-step {
+    display: flex; gap: 8px; padding: 7px 8px; border-radius: 8px; align-items: flex-start;
+  }
+  .act-step:hover { background: var(--panel2); }
+  .act-icon {
+    flex: 0 0 16px; width: 16px; height: 16px; display: grid; place-items: center;
+    font-size: 12px; color: var(--accent2); margin-top: 2px;
+  }
+  .spin {
+    width: 11px; height: 11px; border-radius: 50%;
+    border: 2px solid rgba(79, 140, 255, .3); border-top-color: var(--accent);
+    animation: actspin .8s linear infinite;
+  }
+  @keyframes actspin { to { transform: rotate(360deg); } }
+  .act-body { flex: 1; min-width: 0; }
+  .act-label { font-size: 12.5px; color: var(--txt); }
+  .act-step.pending .act-label { color: #cfe0ff; }
+  .act-meta {
+    font-size: 11px; color: var(--muted); margin-top: 1px; word-break: break-word;
+    overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  }
+  .act-ms { flex: 0 0 auto; font-size: 10.5px; color: var(--muted); margin-top: 3px; }
+  .head-right { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .ghost-btn {
+    background: var(--panel2); border: 1px solid var(--line); color: var(--txt);
+    border-radius: 8px; padding: 5px 9px; cursor: pointer; font-size: 14px; line-height: 1;
+  }
+  .ghost-btn:hover { border-color: var(--accent); color: #fff; }
+  #act-backdrop { display: none; }
   header {
     padding: 14px 22px; border-bottom: 1px solid var(--line);
     display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -113,6 +166,17 @@
   .chip { background: var(--panel); border: 1px solid var(--line); color: #cfd8e6;
           border-radius: 999px; padding: 7px 14px; cursor: pointer; font-size: 13px; }
   .chip:hover { border-color: var(--accent); color: #fff; }
+  @media (max-width: 1100px) {
+    aside.activity {
+      position: fixed; right: 0; top: 0; bottom: 0; width: min(88vw, 360px);
+      z-index: 50; box-shadow: -12px 0 32px rgba(0, 0, 0, .45);
+    }
+    .resizer { display: none; }
+    .app.act-hidden aside.activity { display: none; }
+    .app:not(.act-hidden) #act-backdrop {
+      display: block; position: fixed; inset: 0; background: rgba(0, 0, 0, .45); z-index: 45;
+    }
+  }
   @media (max-width: 760px) {
     aside { display: none; }
     header { padding: 12px 14px; }
@@ -132,7 +196,11 @@
   <main>
     <header>
       <h1>Trợ lý tài liệu 3GPP Release 19</h1>
-      <div class="hint" id="hint">hybrid 70% vector · 30% BM25</div>
+      <div class="head-right">
+        <div class="hint" id="hint">hybrid 70% vector · 30% BM25</div>
+        <button class="ghost-btn" id="act-toggle" type="button"
+                title="Ẩn/hiện cột Hoạt động">◧</button>
+      </div>
     </header>
     <div id="chat"><div class="wrap" id="wrap"></div></div>
     <form id="composer">
@@ -142,12 +210,172 @@
       </div>
     </form>
   </main>
+
+  <div class="resizer" id="resizer" role="separator" aria-orientation="vertical"
+       aria-label="Kéo để đổi độ rộng cột Hoạt động" tabindex="0"
+       title="Kéo để đổi độ rộng · nháy đúp để mặc định"></div>
+
+  <aside class="activity" id="activity">
+    <div class="act-head">
+      <div class="act-title">Hoạt động</div>
+      <div class="act-status" id="act-status">Chưa có hoạt động</div>
+    </div>
+    <div class="act-list" id="act-list">
+      <div class="act-empty">Gửi câu hỏi để xem các bước chatbot đang thực hiện.</div>
+    </div>
+  </aside>
+  <div id="act-backdrop"></div>
 </div>
 
 <script>
 const state = { sid: null, sending: false, controller: null };
 const $ = (s) => document.querySelector(s);
 const wrap = $("#wrap");
+const app = $(".app");
+const actList = $("#act-list");
+const actStatus = $("#act-status");
+
+const AGENT_LABEL = {
+  history: "Nạp lịch sử hội thoại",
+  supervisor: "Phân tích câu hỏi",
+  retrieve: "Tìm tài liệu (dense + BM25)",
+  merge: "Gộp kết quả",
+  grader: "Chấm độ liên quan",
+  synthesizer: "Viết câu trả lời",
+  verifier: "Kiểm tra trích dẫn",
+  persist: "Lưu phiên",
+};
+let act = { rows: {}, round: -1, started: 0 };
+
+function actDivider(text) {
+  const el = document.createElement("div");
+  el.className = "act-turn";
+  el.textContent = text;
+  actList.appendChild(el);
+}
+
+function actEnsureRound(r) {
+  const n = Number(r) || 0;
+  if (n > act.round) {
+    act.round = n;
+    if (n > 0) actDivider(`Tìm lại · vòng ${n + 1}`);
+  }
+}
+
+function actStatusSet(text, cls) {
+  actStatus.textContent = text;
+  actStatus.className = "act-status" + (cls ? " " + cls : "");
+}
+
+function actReset() {
+  act = { rows: {}, round: -1, started: 0 };
+  actList.innerHTML =
+    '<div class="act-empty">Gửi câu hỏi để xem các bước chatbot đang thực hiện.</div>';
+  actStatusSet("Chưa có hoạt động");
+}
+
+function actStart() {
+  act = { rows: {}, round: -1, started: Date.now() };
+  actList.innerHTML = "";
+  actStatusSet("● Đang xử lý…", "busy");
+}
+
+function actMeta(ev) {
+  const m = ev.meta || {};
+  switch (ev.node) {
+    case "history":
+      return m.turns ? `dùng ${m.turns} lượt hội thoại trước` : "không có lịch sử";
+    case "supervisor": {
+      const parts = [];
+      if ((m.specs || []).length) parts.push("spec " + m.specs.join(", "));
+      if ((m.sub_queries || []).length) parts.push(`${m.sub_queries.length} truy vấn`);
+      return parts.join(" · ");
+    }
+    case "retrieve": {
+      const q = (m.sub_query || "").slice(0, 80);
+      return `${q ? q + " · " : ""}${m.hits ?? 0} đoạn`;
+    }
+    case "merge":
+      return `${m.evidence ?? 0} đoạn sau khi gộp`;
+    case "grader":
+      return `giữ ${m.kept ?? 0}/${m.total ?? "?"} đoạn · ` +
+             `${m.sufficient ? "đủ thông tin" : "cần tìm lại"}`;
+    case "synthesizer":
+      return `${(m.chars ?? 0).toLocaleString("vi-VN")} ký tự · ${m.citations ?? 0} nguồn`;
+    case "verifier":
+      return m.ok ? "trích dẫn hợp lệ" : `${(m.issues || []).length} vấn đề`;
+    case "persist":
+      return "đã lưu vào SQLite";
+    default:
+      return "";
+  }
+}
+
+function actRow(node) {
+  const el = document.createElement("div");
+  el.className = "act-step pending";
+  el.innerHTML = '<span class="act-icon"><span class="spin"></span></span>' +
+    '<div class="act-body"><div class="act-label"></div><div class="act-meta"></div></div>' +
+    '<span class="act-ms"></span>';
+  el.querySelector(".act-label").textContent = AGENT_LABEL[node] || node;
+  actList.appendChild(el);
+  return el;
+}
+
+function actStep(ev) {
+  actEnsureRound(ev.round);
+  if (ev.phase === "start") {
+    act.rows[ev.run_id] = actRow(ev.node);
+  } else {
+    const el = act.rows[ev.run_id] || actRow(ev.node);
+    el.classList.remove("pending");
+    el.classList.add("done");
+    const failed = !!(ev.meta && ev.meta.error);
+    el.querySelector(".act-icon").textContent = failed ? "✕" : "✓";
+    if (failed) el.querySelector(".act-icon").style.color = "var(--err)";
+    const meta = failed ? ev.meta.error : actMeta(ev);
+    if (meta) el.querySelector(".act-meta").textContent = meta;
+    if (ev.ms != null) el.querySelector(".act-ms").textContent = (ev.ms / 1000).toFixed(1) + "s";
+  }
+  actList.scrollTop = actList.scrollHeight;
+}
+
+function actDone(ev) {
+  const secs = act.started ? ((Date.now() - act.started) / 1000).toFixed(0) : "?";
+  actStatusSet(`✓ Hoàn tất · ${secs}s · ${(ev.citations || []).length} nguồn`, "ok");
+}
+
+function actError(msg) {
+  actStatusSet("✕ Lỗi: " + (msg || "không rõ"), "err");
+}
+
+function actCalls(calls, turns) {
+  act = { rows: {}, round: -1, started: 0 };
+  actList.innerHTML = "";
+  if (!calls || !calls.length) {
+    actList.innerHTML = '<div class="act-empty">Chưa có dữ liệu hoạt động cho phiên này.</div>';
+    actStatusSet(`Lịch sử · ${turns} lượt`);
+    return;
+  }
+  let cur = null;
+  for (const c of calls) {
+    if (c.turn_index !== cur) {
+      cur = c.turn_index;
+      actDivider(`Lượt ${cur}`);
+    }
+    const el = document.createElement("div");
+    el.className = "act-step done";
+    el.innerHTML = '<span class="act-icon">•</span><div class="act-body">' +
+      '<div class="act-label"></div><div class="act-meta"></div></div><span class="act-ms"></span>';
+    el.querySelector(".act-label").textContent = AGENT_LABEL[c.agent] || c.agent;
+    el.querySelector(".act-meta").textContent =
+      `${(c.model || "").replace("openai/", "")} · ${c.tokens_in || 0}→${c.tokens_out || 0} token`;
+    el.querySelector(".act-ms").textContent =
+      c.latency_ms ? (c.latency_ms / 1000).toFixed(1) + "s" : "";
+    actList.appendChild(el);
+  }
+  actStatusSet(`Lịch sử · ${turns} lượt`);
+}
 
 const esc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
@@ -199,7 +427,7 @@ function addAI() {
   const el = document.createElement("div");
   el.className = "msg ai";
   el.innerHTML = '<div class="who">AI</div><div class="bubble">' +
-    '<div class="status">Đang tìm tài liệu…</div><div class="text"></div>' +
+    '<div class="status">Đang xử lý…</div><div class="text"></div>' +
     '<div class="sources" hidden></div></div>';
   wrap.appendChild(el);
   scrollDown();
@@ -228,6 +456,7 @@ function setBusy(busy) {
 }
 
 function clearChat() {
+  actReset();
   wrap.innerHTML = `
     <div class="empty">
       <h2>Hỏi về tài liệu 3GPP Rel-19</h2>
@@ -310,6 +539,7 @@ async function openSession(sid) {
       renderSources(el, t.citations || []);
     }
     if (!(data.turns || []).length) clearChat();
+    actCalls(data.calls || [], (data.turns || []).length);
     loadSessions(sid);
     scrollDown();
   } catch (e) {
@@ -335,6 +565,7 @@ async function send() {
   const status = el.querySelector(".status");
   const out = el.querySelector(".text");
   let buffer = "", raf = 0;
+  actStart();
 
   const paint = () => {
     raf = 0;
@@ -377,12 +608,15 @@ async function send() {
           if (ev.type === "session") {
             state.sid = ev.session_id;
             loadSessions(state.sid);
+          } else if (ev.type === "step") {
+            actStep(ev);
           } else if (ev.type === "token") {
             if (status) status.remove();
             buffer += ev.text;
             if (!raf) raf = requestAnimationFrame(paint);
           } else if (ev.type === "error") {
             if (status) status.remove();
+            actError(ev.message);
             out.innerHTML += `<p class="err">Lỗi: ${esc(ev.message)}</p>`;
           } else if (ev.type === "done") {
             if (status) status.remove();
@@ -392,6 +626,7 @@ async function send() {
             if (ev.verdict && ev.verdict.ok === false) {
               out.innerHTML += '<p class="err">⚠️ Câu trả lời chưa được kiểm chứng đầy đủ.</p>';
             }
+            actDone(ev);
             loadSessions(state.sid);
           }
         }
@@ -401,6 +636,7 @@ async function send() {
     paint();
   } catch (e) {
     if (status) status.remove();
+    actError(String(e));
     out.innerHTML = `<p class="err">Không gọi được API: ${esc(String(e))}</p>`;
   } finally {
     setBusy(false);
@@ -423,6 +659,65 @@ wrap.addEventListener("click", (e) => {
   const box = e.target.closest(".msg").querySelector(".sources");
   if (box && !box.hidden) {
     box.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+});
+
+// ---- cot "Hoat dong": an/hien + keo gian ----
+const ACT_KEY = "activityHidden";
+if (window.innerWidth <= 1100) app.classList.add("act-hidden");
+else if (localStorage.getItem(ACT_KEY) === "1") app.classList.add("act-hidden");
+
+$("#act-toggle").addEventListener("click", () => {
+  const hidden = app.classList.toggle("act-hidden");
+  if (window.innerWidth > 1100) localStorage.setItem(ACT_KEY, hidden ? "1" : "0");
+});
+$("#act-backdrop").addEventListener("click", () => app.classList.add("act-hidden"));
+
+const resizer = $("#resizer");
+const MIN_W = 240, MAX_W = 480, DEF_W = 300;
+function setActWidth(w) {
+  w = Math.round(Math.max(MIN_W, Math.min(MAX_W, w)));
+  app.style.setProperty("--activity-w", w + "px");
+  return w;
+}
+const storedW = parseInt(localStorage.getItem("activityWidth") || "", 10);
+if (storedW >= MIN_W && storedW <= MAX_W) setActWidth(storedW);
+
+let dragging = false;
+resizer.addEventListener("pointerdown", (e) => {
+  dragging = true;
+  resizer.classList.add("dragging");
+  resizer.setPointerCapture(e.pointerId);
+  document.body.style.userSelect = "none";
+  document.body.style.cursor = "col-resize";
+});
+resizer.addEventListener("pointermove", (e) => {
+  if (!dragging) return;
+  setActWidth(window.innerWidth - e.clientX);
+});
+function stopDrag() {
+  if (!dragging) return;
+  dragging = false;
+  resizer.classList.remove("dragging");
+  document.body.style.userSelect = "";
+  document.body.style.cursor = "";
+  const w = parseInt(getComputedStyle(app).getPropertyValue("--activity-w"), 10);
+  if (w) localStorage.setItem("activityWidth", String(w));
+}
+resizer.addEventListener("pointerup", stopDrag);
+resizer.addEventListener("pointercancel", stopDrag);
+resizer.addEventListener("dblclick", () => {
+  setActWidth(DEF_W);
+  localStorage.setItem("activityWidth", String(DEF_W));
+});
+resizer.addEventListener("keydown", (e) => {
+  const cur = parseInt(getComputedStyle(app).getPropertyValue("--activity-w"), 10) || DEF_W;
+  if (e.key === "ArrowLeft") {
+    e.preventDefault();
+    localStorage.setItem("activityWidth", String(setActWidth(cur + 20)));
+  } else if (e.key === "ArrowRight") {
+    e.preventDefault();
+    localStorage.setItem("activityWidth", String(setActWidth(cur - 20)));
   }
 });
 

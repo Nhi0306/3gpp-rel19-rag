@@ -13,6 +13,7 @@ from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
+from langchain_core.callbacks import BaseCallbackHandler
 from pydantic import BaseModel, Field
 
 from config import CFG
@@ -98,6 +99,96 @@ def _session(sid: str | None) -> str:
 
 def _sse(payload: dict) -> str:
     return f"data: {json.dumps(payload, ensure_ascii=False)}\n\n"
+
+
+NODE_LABELS = {
+    "history": "Nạp lịch sử hội thoại",
+    "supervisor": "Phân tích câu hỏi",
+    "retrieve": "Tìm tài liệu (dense + BM25)",
+    "merge": "Gộp kết quả",
+    "grader": "Chấm độ liên quan",
+    "synthesizer": "Viết câu trả lời",
+    "verifier": "Kiểm tra trích dẫn",
+    "persist": "Lưu phiên",
+}
+
+
+class StepHandler(BaseCallbackHandler):
+    """Ban su kien 'step' cho UI theo tung node cua LangGraph.
+
+    Chi doc metadata cua callback, khong goi them LLM nen khong tang chi phi.
+    """
+
+    def __init__(self, events: queue.Queue) -> None:
+        super().__init__()
+        self.events = events
+        self.runs: dict[str, dict] = {}
+        self.round = 0
+
+    def _send(self, payload: dict) -> None:
+        self.events.put(("step", payload))
+
+    def on_chain_start(self, serialized, inputs, **kwargs):  # noqa: ANN001
+        name = kwargs.get("name")
+        node = (kwargs.get("metadata") or {}).get("langgraph_node")
+        if not name or name != node or node not in NODE_LABELS:
+            return
+        rid = str(kwargs.get("run_id"))
+        total = None
+        if isinstance(inputs, dict) and isinstance(inputs.get("evidence"), list):
+            total = len(inputs["evidence"])
+        self.runs[rid] = {"node": node, "started": time.time(), "total": total}
+        self._send({"node": node, "phase": "start", "round": self.round, "run_id": rid})
+
+    def on_chain_error(self, error, **kwargs):  # noqa: ANN001
+        rid = str(kwargs.get("run_id"))
+        info = self.runs.pop(rid, None)
+        if not info:
+            return
+        self._send({
+            "node": info["node"], "phase": "end", "round": self.round, "run_id": rid,
+            "ms": int((time.time() - info["started"]) * 1000),
+            "meta": {"error": str(error)[:300]},
+        })
+
+    def on_chain_end(self, outputs, **kwargs):  # noqa: ANN001
+        rid = str(kwargs.get("run_id"))
+        info = self.runs.pop(rid, None)
+        if not info:
+            return
+        node = info["node"]
+        out = outputs if isinstance(outputs, dict) else {}
+        meta: dict = {}
+        if node == "history":
+            meta = {"turns": len(out.get("history") or [])}
+        elif node == "supervisor":
+            meta = {"specs": out.get("specs") or [], "sub_queries": out.get("sub_queries") or []}
+            self.round = int(out.get("iterations") or self.round)
+        elif node == "retrieve":
+            tr = (out.get("trace") or [{}])[-1]
+            meta = {"hits": len(out.get("candidates") or []), "sub_query": tr.get("query") or ""}
+            self.round = int(tr.get("round") or self.round)
+        elif node == "merge":
+            meta = {"evidence": len(out.get("evidence") or [])}
+            tr = (out.get("trace") or [{}])[-1]
+            self.round = int(tr.get("round") or self.round)
+        elif node == "grader":
+            tr = (out.get("trace") or [{}])[-1]
+            meta = {
+                "kept": tr.get("kept", 0), "total": info.get("total"),
+                "sufficient": bool(out.get("sufficient")),
+            }
+        elif node == "synthesizer":
+            meta = {"chars": len(out.get("answer") or ""), "citations": len(out.get("citations") or [])}
+        elif node == "verifier":
+            verdict = out.get("verdict") or {}
+            meta = {"ok": bool(verdict.get("ok")), "issues": verdict.get("issues") or []}
+        elif node == "persist":
+            meta = {"turn_id": out.get("turn_id")}
+        self._send({
+            "node": node, "phase": "end", "round": self.round, "run_id": rid,
+            "ms": int((time.time() - info["started"]) * 1000), "meta": meta,
+        })
 
 
 def _result(state: dict, sid: str) -> dict:
@@ -195,7 +286,7 @@ def list_sessions() -> list[dict]:
 @app.get("/api/sessions/{sid}")
 def get_session(sid: str) -> dict:
     turns = db.session_turns(sid)
-    return {"id": sid, "turns": turns}
+    return {"id": sid, "turns": turns, "calls": db.session_llm_calls(sid)}
 
 
 @app.delete("/api/sessions/{sid}")
@@ -226,7 +317,7 @@ def chat_stream(body: ChatIn) -> StreamingResponse:
         try:
             state = graph().invoke(
                 {"session_id": sid, "question": body.question},
-                config={"recursion_limit": 40},
+                config={"recursion_limit": 40, "callbacks": [StepHandler(events)]},
             )
             events.put(("done", state))
         except Exception as exc:  # noqa: BLE001
@@ -240,6 +331,8 @@ def chat_stream(body: ChatIn) -> StreamingResponse:
             kind, data = events.get()
             if kind == "token":
                 yield _sse({"type": "token", "text": data})
+            elif kind == "step":
+                yield _sse({"type": "step", **data})
             elif kind == "error":
                 yield _sse({"type": "error", "message": data})
                 return
