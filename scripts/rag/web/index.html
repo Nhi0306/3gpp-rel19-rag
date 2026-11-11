@@ -21,6 +21,9 @@
     width: 280px; flex: 0 0 280px; background: var(--panel);
     border-right: 1px solid var(--line); display: flex; flex-direction: column;
   }
+  .app.sess-hidden aside.sessions { display: none; }
+  #sess-backdrop { display: none; }
+  .head-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
   .brand { padding: 18px 16px 10px; font-weight: 700; letter-spacing: .3px; }
   .brand span { color: var(--accent); }
   .new-btn {
@@ -213,7 +216,13 @@
     }
   }
   @media (max-width: 760px) {
-    aside { display: none; }
+    aside.sessions {
+      position: fixed; left: 0; top: 0; bottom: 0; width: min(86vw, 320px);
+      z-index: 50; box-shadow: 12px 0 32px rgba(0, 0, 0, .45);
+    }
+    .app:not(.sess-hidden) #sess-backdrop {
+      display: block; position: fixed; inset: 0; background: rgba(0, 0, 0, .45); z-index: 45;
+    }
     header { padding: 12px 14px; }
     #chat, #composer { padding-left: 12px; padding-right: 12px; }
   }
@@ -221,7 +230,7 @@
 </head>
 <body>
 <div class="app">
-  <aside>
+  <aside class="sessions">
     <div class="brand">3GPP <span>Rel-19</span> · RAG</div>
     <button class="new-btn" id="new">+ Phiên mới</button>
     <div id="sessions"></div>
@@ -230,11 +239,15 @@
 
   <main>
     <header>
-      <h1>Trợ lý tài liệu 3GPP Release 19</h1>
+      <div class="head-left">
+        <button class="ghost-btn" id="sess-toggle" type="button"
+                title="Ẩn/hiện danh sách phiên" aria-expanded="true">☰</button>
+        <h1>Trợ lý tài liệu 3GPP Release 19</h1>
+      </div>
       <div class="head-right">
         <div class="hint" id="hint">hybrid 70% vector · 30% BM25</div>
         <button class="ghost-btn" id="act-toggle" type="button"
-                title="Ẩn/hiện cột Hoạt động">◧</button>
+                title="Ẩn/hiện cột Hoạt động" aria-expanded="true">◧</button>
       </div>
     </header>
     <div id="chat"><div class="wrap" id="wrap"></div></div>
@@ -259,6 +272,7 @@
       <div class="act-empty">Gửi câu hỏi để xem các bước chatbot đang thực hiện.</div>
     </div>
   </aside>
+  <div id="sess-backdrop"></div>
   <div id="act-backdrop"></div>
 </div>
 
@@ -828,14 +842,37 @@ wrap.addEventListener("click", (e) => {
 
 // ---- cot "Hoat dong": an/hien + keo gian ----
 const ACT_KEY = "activityHidden";
-if (window.innerWidth <= 1100) app.classList.add("act-hidden");
-else if (localStorage.getItem(ACT_KEY) === "1") app.classList.add("act-hidden");
+const SESS_KEY = "sessionsHidden";
+
+function setActHidden(hidden) {
+  app.classList.toggle("act-hidden", hidden);
+  $("#act-toggle").setAttribute("aria-expanded", String(!hidden));
+}
+function setSessHidden(hidden) {
+  app.classList.toggle("sess-hidden", hidden);
+  $("#sess-toggle").setAttribute("aria-expanded", String(!hidden));
+}
+
+if (window.innerWidth <= 1100) setActHidden(true);
+else setActHidden(localStorage.getItem(ACT_KEY) === "1");
+if (window.innerWidth <= 760) setSessHidden(true);
+else setSessHidden(localStorage.getItem(SESS_KEY) === "1");
+
+$("#sess-toggle").addEventListener("click", () => {
+  const hidden = !app.classList.contains("sess-hidden");
+  setSessHidden(hidden);
+  if (!hidden && window.innerWidth <= 760) setActHidden(true);
+  if (window.innerWidth > 760) localStorage.setItem(SESS_KEY, hidden ? "1" : "0");
+});
+$("#sess-backdrop").addEventListener("click", () => setSessHidden(true));
 
 $("#act-toggle").addEventListener("click", () => {
-  const hidden = app.classList.toggle("act-hidden");
+  const hidden = !app.classList.contains("act-hidden");
+  setActHidden(hidden);
+  if (!hidden && window.innerWidth <= 760) setSessHidden(true);
   if (window.innerWidth > 1100) localStorage.setItem(ACT_KEY, hidden ? "1" : "0");
 });
-$("#act-backdrop").addEventListener("click", () => app.classList.add("act-hidden"));
+$("#act-backdrop").addEventListener("click", () => setActHidden(true));
 
 const resizer = $("#resizer");
 const MIN_W = 240, MAX_W = 480, DEF_W = 300;
