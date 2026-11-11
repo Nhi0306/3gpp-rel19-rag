@@ -160,12 +160,14 @@ python scripts\rag_serve.py --port 8080
 | `GET /api/health` | trạng thái collection, profile, model |
 | `POST /api/sessions` | tạo phiên |
 | `GET /api/sessions` | danh sách phiên |
-| `GET /api/sessions/{id}` | các lượt + trích dẫn của phiên |
+| `GET /api/sessions/{id}` | các lượt + trích dẫn + log LLM (`calls`) của phiên |
 | `POST /api/chat` | hỏi–đáp JSON (không stream) |
-| `POST /api/chat/stream` | SSE: `session` → `token`… → `done` (kèm citations) |
+| `POST /api/chat/stream` | SSE: `session` → `step`… → `token`… → `done` (kèm citations) |
 
 Giao diện web tĩnh nằm ở `scripts/rag/web/index.html`: chọn phiên, stream câu trả lời,
-hiển thị nguồn kèm trích đoạn, cảnh báo khi Verifier không xác nhận.
+hiển thị nguồn kèm trích đoạn, cảnh báo khi Verifier không xác nhận. Cột phải **Hoạt động**
+hiện tiến trình từng agent theo thời gian thực (SSE `step`), có thể kéo rộng 240–480px,
+thu gọn bằng nút trên header; mở lại phiên cũ sẽ hiện lịch sử từ bảng `llm_calls`.
 
 ---
 

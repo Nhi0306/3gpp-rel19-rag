@@ -68,33 +68,68 @@
   .act-status.err { color: var(--err); }
   .act-list { flex: 1; overflow: auto; padding: 8px 10px 16px; }
   .act-empty { color: var(--muted); font-size: 12.5px; padding: 14px 8px; line-height: 1.5; }
+  .act-group { margin-bottom: 4px; }
   .act-turn {
-    font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted);
-    margin: 12px 6px 4px; padding-top: 8px; border-top: 1px dashed var(--line);
+    width: 100%; display: flex; align-items: center; gap: 6px; background: transparent;
+    border: 0; border-top: 1px dashed var(--line); color: var(--muted); cursor: pointer;
+    font-size: 11px; text-transform: uppercase; letter-spacing: .6px; text-align: left;
+    padding: 9px 6px 4px; margin-top: 4px;
   }
-  .act-turn:first-child { border-top: 0; margin-top: 4px; padding-top: 0; }
-  .act-step {
-    display: flex; gap: 8px; padding: 7px 8px; border-radius: 8px; align-items: flex-start;
+  .act-group:first-child .act-turn { border-top: 0; margin-top: 0; padding-top: 4px; }
+  .act-turn::before { content: "▾"; font-size: 10px; }
+  .act-turn.closed::before { content: "▸"; }
+  .act-step { position: relative; display: flex; gap: 8px; padding: 4px 2px; align-items: flex-start; }
+  .act-step::before {
+    content: ""; position: absolute; left: 18px; top: 0; bottom: 0; width: 1px;
+    background: var(--line);
   }
-  .act-step:hover { background: var(--panel2); }
+  .act-step:last-of-type::before { bottom: 50%; }
   .act-icon {
-    flex: 0 0 16px; width: 16px; height: 16px; display: grid; place-items: center;
-    font-size: 12px; color: var(--accent2); margin-top: 2px;
+    position: relative; z-index: 1; flex: 0 0 18px; width: 18px; height: 18px;
+    display: grid; place-items: center; background: var(--panel); border-radius: 50%;
+    font-size: 12px; color: var(--accent2); margin-top: 4px;
   }
+  .act-step.pending .act-icon { color: var(--accent); }
   .spin {
     width: 11px; height: 11px; border-radius: 50%;
     border: 2px solid rgba(79, 140, 255, .3); border-top-color: var(--accent);
     animation: actspin .8s linear infinite;
   }
   @keyframes actspin { to { transform: rotate(360deg); } }
-  .act-body { flex: 1; min-width: 0; }
-  .act-label { font-size: 12.5px; color: var(--txt); }
+  .act-card {
+    flex: 1; min-width: 0; border: 1px solid transparent; border-radius: 8px;
+    padding: 1px 2px 2px; transition: background .15s, border-color .15s;
+  }
+  .act-step.pending .act-card {
+    border-color: rgba(79, 140, 255, .35); background: rgba(79, 140, 255, .06);
+  }
+  .act-step.done:hover .act-card { background: var(--panel2); }
+  .act-summary {
+    width: 100%; display: flex; align-items: baseline; gap: 8px; padding: 4px 6px;
+    background: transparent; border: 0; color: inherit; text-align: left; cursor: pointer;
+  }
+  .act-summary.static { cursor: default; }
+  .act-step.has-detail .act-summary::after { content: "▸"; font-size: 10px; color: var(--muted); }
+  .act-step.has-detail.open .act-summary::after { content: "▾"; }
+  .act-label {
+    flex: 1; min-width: 0; font-size: 12.5px; color: var(--txt);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
   .act-step.pending .act-label { color: #cfe0ff; }
+  .act-ms { flex: 0 0 auto; font-size: 10.5px; color: var(--muted); }
   .act-meta {
-    font-size: 11px; color: var(--muted); margin-top: 1px; word-break: break-word;
+    font-size: 11px; color: var(--muted); margin: 0 6px 4px; word-break: break-word;
     overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
   }
-  .act-ms { flex: 0 0 auto; font-size: 10.5px; color: var(--muted); margin-top: 3px; }
+  .act-detail {
+    margin: 0 6px 6px; padding-top: 5px; border-top: 1px solid var(--line);
+    font-size: 11.5px; color: #b7c1d1; line-height: 1.55; word-break: break-word;
+  }
+  .act-detail > div + div { margin-top: 2px; }
+  .act-foot {
+    margin: 2px 4px 8px 26px; padding: 6px 8px; border-top: 1px dashed var(--line);
+    font-size: 10.5px; color: var(--muted); line-height: 1.6;
+  }
   .head-right { display: flex; align-items: center; gap: 10px; min-width: 0; }
   .ghost-btn {
     background: var(--panel2); border: 1px solid var(--line); color: var(--txt);
@@ -245,20 +280,69 @@ const AGENT_LABEL = {
   verifier: "Kiểm tra trích dẫn",
   persist: "Lưu phiên",
 };
-let act = { rows: {}, round: -1, started: 0 };
+let act = { rows: {}, round: -1, started: 0, body: null };
 
-function actDivider(text) {
+const PRICE = {
+  "openai/gpt-4o-mini": [0.15, 0.60],
+  "openai/gpt-5-mini": [0.25, 2.00],
+  "openai/gpt-4.1-mini": [0.40, 1.60],
+};
+
+function costOf(calls) {
+  let tin = 0, tout = 0, cost = 0;
+  const models = new Set();
+  for (const c of calls || []) {
+    const p = PRICE[c.model] || [0, 0];
+    const i = Number(c.input_tokens ?? c.tokens_in ?? 0) || 0;
+    const o = Number(c.output_tokens ?? c.tokens_out ?? 0) || 0;
+    tin += i;
+    tout += o;
+    cost += (i * p[0] + o * p[1]) / 1e6;
+    if (c.model) models.add(c.model.replace("openai/", ""));
+  }
+  return { tin, tout, cost, models: [...models] };
+}
+
+function fmtTok(n) {
+  return n >= 1000 ? (n / 1000).toFixed(1) + "k" : String(n);
+}
+
+function actFoot(calls) {
+  const { tin, tout, cost, models } = costOf(calls);
+  if (!tin && !tout) return;
   const el = document.createElement("div");
-  el.className = "act-turn";
-  el.textContent = text;
-  actList.appendChild(el);
+  el.className = "act-foot";
+  const a = document.createElement("div");
+  a.textContent = `${(calls || []).length} lời gọi · ${fmtTok(tin)}→${fmtTok(tout)} token`;
+  const b = document.createElement("div");
+  b.textContent = `${models.join(", ")} · ≤ $${cost.toFixed(4)} (ước tính)`;
+  el.append(a, b);
+  (act.body || actList).appendChild(el);
+}
+
+function actGroup(label) {
+  const g = document.createElement("div");
+  g.className = "act-group";
+  const head = document.createElement("button");
+  head.type = "button";
+  head.className = "act-turn";
+  head.textContent = label;
+  const body = document.createElement("div");
+  body.className = "act-group-body";
+  head.addEventListener("click", () => {
+    body.hidden = !body.hidden;
+    head.classList.toggle("closed", body.hidden);
+  });
+  g.append(head, body);
+  actList.appendChild(g);
+  return body;
 }
 
 function actEnsureRound(r) {
   const n = Number(r) || 0;
   if (n > act.round) {
     act.round = n;
-    if (n > 0) actDivider(`Tìm lại · vòng ${n + 1}`);
+    act.body = n > 0 ? actGroup(`Tìm lại · vòng ${n + 1}`) : null;
   }
 }
 
@@ -268,14 +352,14 @@ function actStatusSet(text, cls) {
 }
 
 function actReset() {
-  act = { rows: {}, round: -1, started: 0 };
+  act = { rows: {}, round: -1, started: 0, body: null };
   actList.innerHTML =
     '<div class="act-empty">Gửi câu hỏi để xem các bước chatbot đang thực hiện.</div>';
   actStatusSet("Chưa có hoạt động");
 }
 
 function actStart() {
-  act = { rows: {}, round: -1, started: Date.now() };
+  act = { rows: {}, round: -1, started: Date.now(), body: null };
   actList.innerHTML = "";
   actStatusSet("● Đang xử lý…", "busy");
 }
@@ -311,14 +395,73 @@ function actMeta(ev) {
   }
 }
 
+function actDetails(ev) {
+  const m = ev.meta || {};
+  if (m.error) return ["Lỗi: " + m.error];
+  const out = [];
+  switch (ev.node) {
+    case "history":
+      out.push(`Lịch sử: ${m.turns ?? 0} lượt hội thoại`);
+      break;
+    case "supervisor":
+      if ((m.specs || []).length) out.push("Spec: " + m.specs.join(", "));
+      (m.sub_queries || []).forEach((q, i) => out.push(`Truy vấn ${i + 1}: ${q}`));
+      break;
+    case "retrieve":
+      if (m.sub_query) out.push("Truy vấn: " + m.sub_query);
+      out.push(`Số đoạn tìm được: ${m.hits ?? 0}`);
+      break;
+    case "merge":
+      out.push(`Sau khi gộp/khử trùng: ${m.evidence ?? 0} đoạn`);
+      break;
+    case "grader":
+      out.push(`Giữ lại: ${m.kept ?? 0}/${m.total ?? "?"} đoạn`);
+      out.push("Kết luận: " + (m.sufficient ? "đủ thông tin để trả lời" : "cần tìm lại"));
+      break;
+    case "synthesizer":
+      out.push(`Độ dài: ${m.chars ?? 0} ký tự`);
+      out.push(`Trích dẫn: ${m.citations ?? 0} nguồn`);
+      break;
+    case "verifier":
+      out.push(m.ok ? "Trích dẫn hợp lệ" : "Vấn đề: " + (m.issues || []).join("; "));
+      break;
+    case "persist":
+      out.push(`Turn ID: ${m.turn_id ?? "?"}`);
+      break;
+  }
+  return out;
+}
+
+function setDetails(el, lines) {
+  const d = el.querySelector(".act-detail");
+  d.innerHTML = "";
+  for (const line of lines) {
+    const div = document.createElement("div");
+    div.textContent = line;
+    d.appendChild(div);
+  }
+  el.classList.toggle("has-detail", lines.length > 0);
+}
+
 function actRow(node) {
   const el = document.createElement("div");
   el.className = "act-step pending";
   el.innerHTML = '<span class="act-icon"><span class="spin"></span></span>' +
-    '<div class="act-body"><div class="act-label"></div><div class="act-meta"></div></div>' +
-    '<span class="act-ms"></span>';
+    '<div class="act-card">' +
+      '<button class="act-summary" type="button">' +
+        '<span class="act-label"></span><span class="act-ms"></span>' +
+      '</button>' +
+      '<div class="act-meta"></div>' +
+      '<div class="act-detail" hidden></div>' +
+    '</div>';
   el.querySelector(".act-label").textContent = AGENT_LABEL[node] || node;
-  actList.appendChild(el);
+  el.querySelector(".act-summary").addEventListener("click", () => {
+    if (!el.classList.contains("has-detail")) return;
+    const d = el.querySelector(".act-detail");
+    d.hidden = !d.hidden;
+    el.classList.toggle("open", !d.hidden);
+  });
+  (act.body || actList).appendChild(el);
   return el;
 }
 
@@ -336,6 +479,7 @@ function actStep(ev) {
     const meta = failed ? ev.meta.error : actMeta(ev);
     if (meta) el.querySelector(".act-meta").textContent = meta;
     if (ev.ms != null) el.querySelector(".act-ms").textContent = (ev.ms / 1000).toFixed(1) + "s";
+    setDetails(el, actDetails(ev));
   }
   actList.scrollTop = actList.scrollHeight;
 }
@@ -343,6 +487,7 @@ function actStep(ev) {
 function actDone(ev) {
   const secs = act.started ? ((Date.now() - act.started) / 1000).toFixed(0) : "?";
   actStatusSet(`✓ Hoàn tất · ${secs}s · ${(ev.citations || []).length} nguồn`, "ok");
+  actFoot(ev.usage || []);
 }
 
 function actError(msg) {
@@ -350,30 +495,41 @@ function actError(msg) {
 }
 
 function actCalls(calls, turns) {
-  act = { rows: {}, round: -1, started: 0 };
+  act = { rows: {}, round: -1, started: 0, body: null };
   actList.innerHTML = "";
   if (!calls || !calls.length) {
     actList.innerHTML = '<div class="act-empty">Chưa có dữ liệu hoạt động cho phiên này.</div>';
     actStatusSet(`Lịch sử · ${turns} lượt`);
     return;
   }
-  let cur = null;
+  let cur = null, group = [], body = null;
+  const flush = () => {
+    if (!group.length) return;
+    act.body = body;
+    actFoot(group);
+    group = [];
+  };
   for (const c of calls) {
     if (c.turn_index !== cur) {
+      flush();
       cur = c.turn_index;
-      actDivider(`Lượt ${cur}`);
+      body = actGroup(`Lượt ${cur}`);
+      act.body = body;
     }
     const el = document.createElement("div");
     el.className = "act-step done";
-    el.innerHTML = '<span class="act-icon">•</span><div class="act-body">' +
-      '<div class="act-label"></div><div class="act-meta"></div></div><span class="act-ms"></span>';
+    el.innerHTML = '<span class="act-icon">•</span><div class="act-card">' +
+      '<div class="act-summary static"><span class="act-label"></span><span class="act-ms"></span></div>' +
+      '<div class="act-meta"></div></div>';
     el.querySelector(".act-label").textContent = AGENT_LABEL[c.agent] || c.agent;
     el.querySelector(".act-meta").textContent =
       `${(c.model || "").replace("openai/", "")} · ${c.tokens_in || 0}→${c.tokens_out || 0} token`;
     el.querySelector(".act-ms").textContent =
       c.latency_ms ? (c.latency_ms / 1000).toFixed(1) + "s" : "";
-    actList.appendChild(el);
+    body.appendChild(el);
+    group.push(c);
   }
+  flush();
   actStatusSet(`Lịch sử · ${turns} lượt`);
 }
 
